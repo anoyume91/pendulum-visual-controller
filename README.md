@@ -1,5 +1,7 @@
 Pendulum Visual Controller
 
+Live Demo: https://anoyume91.github.io/pendulum-visual-controller/
+
 An interactive pendulum simulation where the pendulum's motion
 (angle, speed, damping, and direction) drives several different visual modes.
 The project explores how a simple physical system can be used to generate
