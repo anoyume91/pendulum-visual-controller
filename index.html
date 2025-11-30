@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Pendulum Visual Controller</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0a0a0a;
+            font-family: 'Courier New', monospace;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ffcc;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        Click and drag the pendulum bob to set angle<br>
+        Press SPACE to change visual mode<br>
+        Press R to reset pendulum<br>
+        Scroll to adjust pendulum length
+    </div>
+    <script>
+// ===== PENDULUM VISUAL CONTROLLER =====
+// Interactive pendulum that controls dynamic waveforms and visual effects
+
+// Pendulum properties
+let pendulum = {
+    origin: { x: 0, y: 0 },      // Pivot point
+    length: 200,                  // Rod length (adjustable with scroll)
+    angle: Math.PI / 4,           // Current angle (radians)
+    angleVel: 0,                  // Angular velocity
+    angleAcc: 0,                  // Angular acceleration
+    damping: 0.995,               // Slight damping for realism
+    gravity: 0.5,                 // Gravity strength
+    bobRadius: 20,                // Visual size of bob
+    isDragging: false             // Mouse interaction state
+};
+
+// Visual control mappings
+let visual = {
+    mode: 0,                      // Visual style mode (0-2)
+    waveHistory: [],              // Store previous wave states for trails
+    maxHistory: 50,               // Maximum trail length
+    particles: [],                // For particle effects
+    hue: 0                        // Color cycling
+};
+
+// Performance tracking
+let frameCounter = 0;
+
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    colorMode(HSB, 360, 100, 100, 100);
+    
+    // Set pendulum origin to top center
+    pendulum.origin.x = width / 2;
+    pendulum.origin.y = height * 0.25;
+    
+    // Initialize particle system
+    for (let i = 0; i < 100; i++) {
+        visual.particles.push({
+            x: random(width),
+            y: random(height * 0.5, height),
+            size: random(2, 6),
+            speed: random(0.5, 2)
+        });
+    }
+}
+
+function draw() {
+    // Dynamic background with subtle fade
+    background(0, 0, 5, 20);
+    
+    // Update pendulum physics
+    updatePendulum();
+    
+    // Draw visualization based on pendulum state
+    drawVisualization();
+    
+    // Draw the pendulum itself
+    drawPendulum();
+    
+    // Update frame counter
+    frameCounter++;
+}
+
+// ===== PENDULUM PHYSICS =====
+function updatePendulum() {
+    if (!pendulum.isDragging) {
+        // Simple pendulum equation: α = -(g/L) * sin(θ)
+        pendulum.angleAcc = (-pendulum.gravity / pendulum.length) * sin(pendulum.angle);
+        
+        // Update velocity and position
+        pendulum.angleVel += pendulum.angleAcc;
+        pendulum.angleVel *= pendulum.damping; // Apply damping
+        pendulum.angle += pendulum.angleVel;
+    }
+}
+
+// ===== PENDULUM RENDERING =====
+function drawPendulum() {
+    push();
+    translate(pendulum.origin.x, pendulum.origin.y);
+    
+    // Calculate bob position
+    let bobX = pendulum.length * sin(pendulum.angle);
+    let bobY = pendulum.length * cos(pendulum.angle);
+    
+    // Draw the rod
+    stroke(180, 50, 80, 60);
+    strokeWeight(2);
+    line(0, 0, bobX, bobY);
+    
+    // Draw the bob with glow effect
+    noStroke();
+    // Outer glow
+    for (let i = 3; i > 0; i--) {
+        fill(180, 70, 100, 10);
+        ellipse(bobX, bobY, pendulum.bobRadius * (1 + i * 0.5));
+    }
+    // Inner bob
+    fill(180, 80, 100);
+    ellipse(bobX, bobY, pendulum.bobRadius);
+    
+    // Draw pivot point
+    fill(180, 50, 80);
+    ellipse(0, 0, 10);
+    
+    pop();
+}
+
+// ===== VISUALIZATION SYSTEM =====
+function drawVisualization() {
+    push();
+    
+    // MAPPING VARIABLES - These control how pendulum affects visuals
+    // Angle maps to frequency (more angle = higher frequency)
+    let frequency = map(abs(pendulum.angle), 0, PI, 0.01, 0.1);
+    
+    // Angular velocity maps to amplitude and brightness
+    let amplitude = map(abs(pendulum.angleVel), 0, 0.2, 20, 150);
+    let brightness = map(abs(pendulum.angleVel), 0, 0.2, 30, 100);
+    
+    // Pendulum length maps to wavelength scale
+    let waveScale = map(pendulum.length, 100, 400, 0.5, 2);
+    
+    switch(visual.mode) {
+        case 0:
+            // MODE 0: Dynamic Waveform
+            drawWaveform(frequency, amplitude, brightness, waveScale);
+            break;
+        case 1:
+            // MODE 1: Particle Field
+            drawParticleField(frequency, amplitude, brightness);
+            break;
+        case 2:
+            // MODE 2: Geometric Mandala
+            drawGeometricMandala(frequency, amplitude, brightness, waveScale);
+            break;
+    }
+    
+    pop();
+}
+
+// ===== VISUAL MODE 0: WAVEFORM =====
+function drawWaveform(frequency, amplitude, brightness, waveScale) {
+    // Store current wave state
+    let currentWave = [];
+    
+    // Generate waveform based on pendulum state
+    strokeWeight(2);
+    noFill();
+    
+    for (let x = 0; x < width; x += 5) {
+        // Complex wave function combining multiple harmonics
+        let y = height * 0.7;
+        
+        // Primary wave - controlled by pendulum angle
+        y += sin(x * frequency) * amplitude;
+        
+        // Secondary harmonic - creates complexity
+        y += sin(x * frequency * 2 + frameCounter * 0.02) * amplitude * 0.3;
+        
+        // Tertiary wave - adds organic movement
+        y += cos(x * frequency * 0.5 + pendulum.angle) * amplitude * 0.5;
+        
+        currentWave.push({x: x, y: y});
+    }
+    
+    // Add to history for trail effect
+    visual.waveHistory.push({
+        points: currentWave,
+        brightness: brightness,
+        hue: (visual.hue + pendulum.angle * 50) % 360
+    });
+    
+    // Limit history length
+    if (visual.waveHistory.length > visual.maxHistory) {
+        visual.waveHistory.shift();
+    }
+    
+    // Draw all waves with fading effect
+    for (let i = 0; i < visual.waveHistory.length; i++) {
+        let wave = visual.waveHistory[i];
+        let alpha = map(i, 0, visual.waveHistory.length, 5, 100);
+        
+        stroke(wave.hue, 80, wave.brightness, alpha);
+        beginShape();
+        for (let point of wave.points) {
+            vertex(point.x, point.y);
+        }
+        endShape();
+    }
+    
+    // Update color
+    visual.hue = (visual.hue + 0.5) % 360;
+}
+
+// ===== VISUAL MODE 1: PARTICLE FIELD =====
+function drawParticleField(frequency, amplitude, brightness) {
+    for (let particle of visual.particles) {
+        // Pendulum angle affects particle drift direction
+        let drift = sin(pendulum.angle) * 5;
+        
+        // Angular velocity affects particle speed and size
+        let speedMod = map(abs(pendulum.angleVel), 0, 0.2, 0.5, 3);
+        let sizeMod = map(abs(pendulum.angleVel), 0, 0.2, 0.5, 2);
+        
+        // Update particle position
+        particle.x += drift + sin(frameCounter * frequency + particle.y * 0.01) * 2;
+        particle.y -= particle.speed * speedMod;
+        
+        // Wrap particles
+        if (particle.y < height * 0.5) {
+            particle.y = height;
+            particle.x = random(width);
+        }
+        if (particle.x < 0) particle.x = width;
+        if (particle.x > width) particle.x = 0;
+        
+        // Draw particle with glow
+        let hue = (180 + pendulum.angle * 100) % 360;
+        noStroke();
+        
+        // Glow
+        fill(hue, 60, brightness, 20);
+        ellipse(particle.x, particle.y, particle.size * sizeMod * 3);
+        
+        // Core
+        fill(hue, 80, brightness, 80);
+        ellipse(particle.x, particle.y, particle.size * sizeMod);
+    }
+}
+
+// ===== VISUAL MODE 2: GEOMETRIC MANDALA =====
+function drawGeometricMandala(frequency, amplitude, brightness, waveScale) {
+    push();
+    translate(width / 2, height * 0.75);
+    
+    // Number of shapes based on frequency
+    let shapeCount = floor(map(frequency, 0.01, 0.1, 6, 24));
+    
+    noFill();
+    strokeWeight(1);
+    
+    // Draw rotating geometric patterns
+    for (let i = 0; i < shapeCount; i++) {
+        push();
+        
+        // Rotation based on pendulum angle and time
+        rotate(TWO_PI / shapeCount * i + pendulum.angle);
+        
+        // Color based on position and pendulum state
+        let hue = (i * 360 / shapeCount + frameCounter * 0.5) % 360;
+        stroke(hue, 70, brightness, 60);
+        
+        // Draw geometric shape (triangle to hexagon based on amplitude)
+        let radius = amplitude * waveScale;
+        let sides = floor(map(amplitude, 20, 150, 3, 8));
+        
+        beginShape();
+        for (let j = 0; j < sides; j++) {
+            let angle = TWO_PI / sides * j;
+            let x = cos(angle) * radius;
+            let y = sin(angle) * radius;
+            vertex(x, y);
+        }
+        endShape(CLOSE);
+        
+        // Add inner details
+        if (brightness > 50) {
+            stroke(hue, 50, brightness, 30);
+            let innerRadius = radius * 0.5;
+            ellipse(0, 0, innerRadius * 2);
+        }
+        
+        pop();
+    }
+    
+    pop();
+}
+
+// ===== MOUSE INTERACTION =====
+function mousePressed() {
+    // Calculate bob position
+    let bobX = pendulum.origin.x + pendulum.length * sin(pendulum.angle);
+    let bobY = pendulum.origin.y + pendulum.length * cos(pendulum.angle);
+    
+    // Check if mouse is on the bob
+    let d = dist(mouseX, mouseY, bobX, bobY);
+    if (d < pendulum.bobRadius * 2) {
+        pendulum.isDragging = true;
+        pendulum.angleVel = 0; // Stop current motion
+    }
+}
+
+function mouseReleased() {
+    pendulum.isDragging = false;
+}
+
+function mouseDragged() {
+    if (pendulum.isDragging) {
+        // Calculate angle based on mouse position
+        let dx = mouseX - pendulum.origin.x;
+        let dy = mouseY - pendulum.origin.y;
+        pendulum.angle = atan2(dx, dy);
+        
+        // Limit angle to reasonable range
+        pendulum.angle = constrain(pendulum.angle, -PI * 0.9, PI * 0.9);
+    }
+}
+
+// ===== KEYBOARD CONTROLS =====
+function keyPressed() {
+    if (key === ' ') {
+        // Switch visual mode
+        visual.mode = (visual.mode + 1) % 3;
+        visual.waveHistory = []; // Clear history when switching modes
+        
+        // Show mode name
+        console.log(['Waveform Mode', 'Particle Field Mode', 'Geometric Mandala Mode'][visual.mode]);
+    } else if (key === 'r' || key === 'R') {
+        // Reset pendulum
+        pendulum.angle = PI / 4;
+        pendulum.angleVel = 0;
+        pendulum.angleAcc = 0;
+    }
+}
+
+// ===== SCROLL CONTROL FOR LENGTH =====
+function mouseWheel(event) {
+    // Adjust pendulum length with scroll
+    pendulum.length += event.delta * 0.1;
+    pendulum.length = constrain(pendulum.length, 100, 400);
+    return false; // Prevent page scroll
+}
+
+// ===== WINDOW RESIZE =====
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    pendulum.origin.x = width / 2;
+    pendulum.origin.y = height * 0.25;
+}
+    </script>
+</body>
+</html>
